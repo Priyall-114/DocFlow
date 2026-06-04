@@ -1,0 +1,12 @@
+LOGIN TOKEN
+(username,password)
+
+means:
+
+"Please authenticate"
+AUTHENTICATED TOKEN
+(userDetails,null,authorities)
+
+means:
+
+"Already authenticated"
