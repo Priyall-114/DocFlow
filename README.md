@@ -42,7 +42,7 @@ A secure, production-ready backend REST API for file and folder management built
 
 ### API Documentation
 -  Publicly accessible live API
--  Verified via Postman (15+ endpoints, 50+ test cases)
+-  Verified via Postman (12+ endpoints)
 -  Swagger UI for interactive API exploration
 
 
