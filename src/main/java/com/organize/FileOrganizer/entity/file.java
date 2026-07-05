@@ -25,4 +25,5 @@ public class file {
     private Long FileSize;
     //Since all files always won't belong to a folder
     private ObjectId userid;
+    private String EmbeddingStatus;
 }

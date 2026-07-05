@@ -3,6 +3,7 @@ package com.organize.FileOrganizer.service;
 import com.organize.FileOrganizer.Repository.UserRepository;
 import com.organize.FileOrganizer.Repository.fileRepo;
 import com.organize.FileOrganizer.Repository.folderRepo;
+import com.organize.FileOrganizer.configuration.PythonConfig;
 import com.organize.FileOrganizer.dto.SearchResultDTO;
 import com.organize.FileOrganizer.entity.file;
 import com.organize.FileOrganizer.entity.folder;
@@ -11,6 +12,7 @@ import com.organize.FileOrganizer.enums.FileStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -18,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -40,6 +43,11 @@ public class fileService {
     private fileRepo fileRepo;
     @Autowired
     private s3service s3service;
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value("${python.service.url}")
+    private String pythonServiceURL;
 
     public ResponseEntity<?> saveFile(MultipartFile File , String uname , String folderName) throws IOException {
         try {
@@ -76,8 +84,25 @@ public class fileService {
                     Fileobj.setUploadDate(LocalDateTime.now());
                     Fileobj.setLastModifiedDate(LocalDateTime.now());
                     fileRepo.save(Fileobj);
+
                     User.setCurrentAvailableSpace(User.getCurrentAvailableSpace() - Fileobj.getFileSize());
                     userRepository.save(User);
+                    //-----------------------------Python RAG--------------
+                    try{
+                        //? pehle query param se pehle aata hai (URL syntax mein), aur & har agle query param ko separate karta hai — yeh HTTP URL ka standard format hai, Java ka nahi.
+                        String ragURL=pythonServiceURL+"/documents/upload"
+                                + "?user_id=" + User.getId()
+                                + "&file_id=" + Fileobj.getFileId()
+                                + "&s3_key=" + s3Key
+                                +"&fileName="+Fileobj.getFileName();
+                        restTemplate.postForEntity(ragURL,null, String.class);
+                        log.info("RAG processing triggered for file: " + Fileobj.getFileId());
+                    } catch (Exception ragException) {
+                        log.error("Failed to trigger RAG processing", ragException);
+                    }
+
+
+
                 } catch (Exception e) {
                     if (User.getCurrentAvailableSpace() >= File.getSize()) {
                         return new ResponseEntity<>("Your free space usage is exhausted please check storage for more info /n File couldn't be saved", HttpStatus.BAD_REQUEST);
