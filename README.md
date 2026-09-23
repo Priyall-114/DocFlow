@@ -85,7 +85,7 @@ The pipeline is evaluated using [RAGAS](https://github.com/GoldSharon/ragas) wit
 | Context Precision | 0.679 |
 | Context Recall | 0.532 |
 
-Lower recall is largely attributable to shallow source content (slide-style PDFs with minimal prose) rather than retrieval or generation defects. Full methodology, testset generation process, and analysis are in the [RAG-Microservice README](RAG-Microservice/README.md#evaluation).
+Lower recall is largely attributable to shallow source content (slide-style PDFs with minimal prose) rather than retrieval or generation defects. Full methodology, testset generation process, and analysis are in the [RAG-Microservice README](https://github.com/Priyall-114/DocFlow/blob/main/RAG-Microservice/readme.md).
 
 ### API Documentation
 - Verified via Postman (12+ endpoints)
