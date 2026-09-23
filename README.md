@@ -6,17 +6,17 @@ A secure, production-ready file and folder management platform with an integrate
 
 DocFlow is composed of two independently running services:
 
-- **Backend (Java / Spring Boot)** — handles authentication, file/folder CRUD, storage quotas, S3 storage, and payments. This is the single entry point for all clients.
+- **Backend (Java / Spring Boot)** — handles authentication, file/folder CRUD, storage quotas, S3 storage. This is the single entry point for all clients.
 - **RAG Service (Python / FastAPI)** — handles document ingestion (chunking, embedding, vector storage) and retrieval-augmented question answering. It is internal-only and is only ever called by the Spring Boot backend, never directly by a client.
 
 ```
-Client → Spring Boot (auth, files, payments)
-              ├── AWS S3 (file storage)
-              ├── MongoDB Atlas (metadata)
-              ├── Razorpay (payments)
-              └── DocFlow RAG Service (Python) — triggered on upload / query
-                        ├── MongoDB Atlas Vector Search (chunks + embeddings)
-                        └── Google Gemini (answer generation)
+Client -> Spring Boot (auth, files, payments)
+              |-- AWS S3 (file storage)
+              |-- MongoDB Atlas (metadata)
+              |-- Razorpay (payments)
+              `-- DocFlow RAG Service (Python) -- triggered on upload / query
+                        |-- MongoDB Atlas Vector Search (chunks + embeddings)
+                        `-- Groq-openai/gpt-oss-120b (answer generation)
 ```
 
 All authentication is centralized in Spring Boot. The RAG service has no auth layer of its own — the trust boundary is enforced upstream, so the Python service stays lightweight and there's no duplicated security logic.
@@ -31,7 +31,7 @@ All authentication is centralized in Spring Boot. The RAG service has no auth la
 | Authentication | JWT (1-hour expiry + refresh token rotation) |
 | File Storage | AWS S3 |
 | Embeddings | Sentence Transformers (`all-MiniLM-L6-v2`) |
-| LLM | Google Gemini (`gemini-2.5-flash`) |
+| LLM | Groq (`openai/gpt-oss-120b`) |
 | PDF Processing | pdfplumber |
 | Payments | Razorpay (webhook signature verification) |
 | Deployment | AWS Elastic Beanstalk |
@@ -74,6 +74,19 @@ All authentication is centralized in Spring Boot. The RAG service has no auth la
 - Per-file processing status (`EmbeddingStatus: completed / failed`) synced back to the file's metadata so the frontend can reflect real-time state
 - Answers are returned along with their source chunks (filename, matched text, similarity score) for transparency
 
+**Evaluation (RAGAS)**
+
+The pipeline is evaluated using [RAGAS](https://github.com/GoldSharon/ragas) with a synthetic testset generated from the source documents:
+
+| Metric | Score |
+|--------|-------|
+| Faithfulness | 0.795 |
+| Answer Relevancy | 0.572 |
+| Context Precision | 0.679 |
+| Context Recall | 0.532 |
+
+Lower recall is largely attributable to shallow source content (slide-style PDFs with minimal prose) rather than retrieval or generation defects. Full methodology, testset generation process, and analysis are in the [RAG-Microservice README](RAG-Microservice/README.md#evaluation).
+
 ### API Documentation
 - Verified via Postman (12+ endpoints)
 - Swagger UI for interactive API exploration
@@ -82,8 +95,8 @@ All authentication is centralized in Spring Boot. The RAG service has no auth la
 
 ```
 DocFlow/
-├── backend-java/          Spring Boot backend (auth, files, payments)
-└── rag-service-python/    FastAPI RAG microservice (ingestion, retrieval, generation)
+|-- src/                    Spring Boot backend (auth, files, payments)
+`-- RAG-Microservice/       FastAPI RAG microservice (ingestion, retrieval, evaluation)
 ```
 
 Each service has its own README with setup instructions specific to that stack.
@@ -91,4 +104,3 @@ Each service has its own README with setup instructions specific to that stack.
 ## Why a Separate Python Service Instead of Doing RAG in Java
 
 Java has limited first-class support for the ML tooling this needed (embedding models, vector operations), while Python's ecosystem (Sentence Transformers, PyMongo, PDF libraries) made building the pipeline from scratch far more direct. Rather than forcing RAG into the existing Spring Boot codebase, it was built as an independent microservice and integrated over REST — keeping the Java backend focused on what it already does well, and letting the RAG service evolve independently (e.g. swapping embedding models or LLM providers) without touching the core platform.
-
